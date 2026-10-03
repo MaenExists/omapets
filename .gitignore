@@ -1,0 +1,9 @@
+# Build / temp artifacts
+*.pbm
+*.tmp
+*~
+*.bak
+
+# Cache
+__pycache__/
+.cache/
