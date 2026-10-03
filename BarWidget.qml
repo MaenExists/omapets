@@ -2,11 +2,11 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 
-// Bar button: the pet's face, breathing slowly. Left click opens its home,
-// middle click is a quick pet on the head.
+// Bar button: Pickle Rick's face / Incubator vat in the top bar.
+// Left click opens the garage lab, middle click is a quick interaction/burp.
 BarWidget {
   id: root
-  moduleName: "slcode777.omagotchi"
+  moduleName: "maen.omapets"
 
   readonly property var petService: bar && bar.shell
     ? bar.shell.serviceFor(moduleName)
@@ -64,7 +64,7 @@ BarWidget {
     labelVisible: false
     hasVisualContent: true
     dimmed: !root.serviceReady
-    tooltipText: root.serviceReady ? root.petService.moodLabel : "Omagotchi"
+    tooltipText: root.serviceReady ? root.petService.moodLabel : "OmaPets (Pickle Rick)"
     fixedWidth: root.vertical ? -1 : Math.round(content.implicitWidth + scaledHorizontalMargin * 2)
     fixedHeight: root.vertical ? Math.round(content.implicitHeight + scaledVerticalPadding * 2) : -1
 
@@ -81,11 +81,11 @@ BarWidget {
 
       PetSprite {
         anchors.fill: parent
-        form: root.serviceReady ? root.petService.form : "egg"
+        form: root.serviceReady ? root.petService.form : "pickle"
         anim: root.serviceReady ? root.petService.stateAnim : "idle"
-        // An unhappy pet fidgets in the bar to catch the eye.
+        colorize: false
         frameMs: root.serviceReady
-          && root.petService.mood !== "happy" && root.petService.mood !== "egg"
+          && root.petService.mood !== "happy" && root.petService.mood !== "incubator"
           && root.petService.mood !== "sleeping"
           ? 350 : 900
         tint: button.foreground

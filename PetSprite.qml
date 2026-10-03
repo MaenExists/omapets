@@ -1,21 +1,20 @@
 import QtQuick
 import QtQuick.Effects
 
-// One animated 1-bit sprite: the two frames (a/b) of `anim` for `form`,
-// tinted live with the theme's colors. If an animation's frames are not in
-// assets/sprites/ yet, it falls back (to `fallbackAnim`, then to the form's
-// idle, which always exists) — so sprites can land in the repo gradually
-// without ever breaking a view.
+// Animated pixel-art sprite renderer.
+// Supports both full-color pixel art (e.g. Pickle Rick, Incubator Vat)
+// and 1-bit dynamic theme tinting via MultiEffect.
 Item {
   id: root
 
-  property string form: "egg"
+  property string form: "pickle"
   property string anim: "idle"
-  // What to try when `anim`'s frames are missing (e.g. "walk" for a climb).
+  // What to try when anim's frames are missing (e.g. "walk" for a climb).
   property string fallbackAnim: "idle"
   property int frameMs: 500
   property bool playing: true
   property color tint: "white"
+  property bool colorize: false
   property bool mirrored: false
 
   property int frame: 0
@@ -46,7 +45,7 @@ Item {
     mipmap: false
     fillMode: Image.PreserveAspectFit
     mirror: root.mirrored
-    visible: false
+    visible: !root.colorize
 
     // Deferred: writing resolvedAnim during the source evaluation that
     // triggered the status change would be a binding loop.
@@ -56,6 +55,7 @@ Item {
   MultiEffect {
     anchors.fill: image
     source: image
+    visible: root.colorize
     colorization: 1
     colorizationColor: root.tint
   }

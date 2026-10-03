@@ -11,10 +11,10 @@ import qs.Ui
 // and the care actions. Every action maps to real system maintenance.
 Panel {
   id: root
-  moduleName: "slcode777.omagotchi"
+  moduleName: "maen.omapets"
 
   // One panel instance exists per bar; only the largest screen's instance
-  // claims the IPC target, so `qs ipc call slcode777.omagotchi toggle` acts
+  // claims the IPC target, so `qs ipc call maen.omapets toggle` acts
   // on a predictable panel instead of whichever instance registered first.
   readonly property var panelScreen: anchorItem && anchorItem.QsWindow.window
     ? anchorItem.QsWindow.window.screen : null
@@ -41,29 +41,29 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   readonly property var needs: ready ? [
-    { label: "Hunger", value: petService.hunger,
+    { label: "Serum / Energy", value: petService.hunger,
       hint: petService.pendingUpdates > 0
-        ? "rising faster: " + petService.pendingUpdates + " updates pending"
-        : "rises over time",
+        ? "depleting faster: " + petService.pendingUpdates + " updates in dimension C-137"
+        : "depletes over active time",
       action: "feed", actionLabel: "Feed", needsHome: true,
-      actionTip: petService.stage === "egg" ? "Still an egg — nothing to feed yet"
-        : petService.eating ? "Nom nom nom…"
-        : petIsOut ? "It's out playing — call it home first"
-        : "A good meal, hunger back to zero" },
-    { label: "Hygiene", value: petService.dirtiness,
-      hint: petIsOut ? "wash it at home: press and scrub it with your mouse"
-        : "press and scrub it with your mouse to wash it",
+      actionTip: petService.stage === "egg" || petService.stage === "incubator" ? "Still incubating in the vat..."
+        : petService.eating ? "Chugging battery serum..."
+        : petIsOut ? "Roaming dimensions — recall first"
+        : "Replenish battery serum to 100%" },
+    { label: "Decontamination", value: petService.dirtiness,
+      hint: petIsOut ? "decontaminate at home: press and scrub with mouse"
+        : "press and scrub with mouse to wipe off sewer grime",
       action: "", actionLabel: "", actionTip: "" },
-    { label: "Energy", value: petService.tiredness,
-      hint: petService.sleeping ? "recovering — Zzz…" : "naps when exhausted",
+    { label: "Cryo Stasis", value: petService.tiredness,
+      hint: petService.sleeping ? "recharging in cryo — Zzz…" : "passes out when exhausted",
       action: "", actionLabel: "", actionTip: "" },
-    { label: "Fun", value: petService.boredom, hint: "roaming cures boredom",
+    { label: "Portal Roam", value: petService.boredom, hint: "roaming dimensions cures boredom",
       action: "roam",
-      actionLabel: petService.settings.roamEnabled === true ? "Come home" : "Go play",
+      actionLabel: petService.settings.roamEnabled === true ? "Recall" : "Open Portal",
       actionTip: petService.canRoam
-        ? "Let the pet roam and climb your windows"
-        : "Too young to go out alone" },
-    { label: "Affection", value: petService.loneliness, hint: "click the pet!",
+        ? "Open a green portal and let Pickle Rick climb your windows"
+        : "Incubating in clone vat — not ready to roam" },
+    { label: "Respect", value: petService.loneliness, hint: "click Pickle Rick!",
       action: "", actionLabel: "", actionTip: "" }
   ] : []
 
@@ -198,8 +198,13 @@ Panel {
           // tolerable on a dim piece). The room stays furnished while the
           // pet is out.
           readonly property var stageDecor: ({
-            // beam = the shade's open edge in sprite pixels [x1, y1, x2, y2];
-            // a cone of light is cast from it onto the pet.
+            incubator: [
+              { name: "flask", x: 0.78, y: 0.48, px: 2, bounce: true }
+            ],
+            pickle: [
+              { name: "portal_gun", x: 0.12, y: 0.58, px: 2.2, bounce: true },
+              { name: "flask", x: 0.78, y: 0.48, px: 2, bounce: true }
+            ],
             egg: [
               { name: "lamp", x: 0.60, y: 0.04, px: 1.5, beam: [1, 13, 14, 25], shelf: true }
             ],
@@ -374,7 +379,8 @@ Panel {
             visible: !root.petIsOut && !root.exiting && !root.entering
             width: Style.space(80)
             height: Style.space(80)
-            form: root.ready ? root.petService.form : "egg"
+            colorize: false
+            form: root.ready ? root.petService.form : "pickle"
             anim: {
               if (!root.ready) return "idle"
               if (root.petService.transientAnim !== "") return root.petService.transientAnim
@@ -795,7 +801,8 @@ Panel {
           id: exitPet
           width: Style.space(80)
           height: Style.space(80)
-          form: root.ready ? root.petService.form : "egg"
+          colorize: false
+          form: root.ready ? root.petService.form : "pickle"
           // Legs pumping on the way out; serenely carried on the way in.
           anim: root.entering ? "idle" : "walk"
           fallbackAnim: "idle"

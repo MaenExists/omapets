@@ -22,8 +22,8 @@ Item {
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME")
     || ((Quickshell.env("HOME") || "") + "/.local/state")
   readonly property string stateDir: stateHome + "/omarchy"
-  readonly property string settingsPath: stateDir + "/omagotchi-settings.json"
-  readonly property string petPath: stateDir + "/omagotchi-state.json"
+  readonly property string settingsPath: stateDir + "/omapets-settings.json"
+  readonly property string petPath: stateDir + "/omapets-state.json"
 
   readonly property var defaultSettings: ({
     roamEnabled: false,
@@ -42,10 +42,9 @@ Item {
   property double hatchedAtMs: 0
   property double lastPetMs: 0
 
-  // Growth, Gen1-chart style: the stage advances with active shell minutes,
-  // and the branch taken depends on average happiness over the stage.
-  property string stage: "egg"     // egg | baby | child | teen | adult
-  property string form: "egg"      // sprite prefix in assets/sprites/
+  // Growth: Starts in clone incubator vat, breaches vat into Pickle Rick.
+  property string stage: "pickle"     // incubator | pickle | egg | baby | child | teen | adult
+  property string form: "pickle"      // sprite prefix in assets/sprites/
   property real ageMinutes: 0
   property real careSum: 0
   property int careCount: 0
@@ -59,8 +58,8 @@ Item {
   property real lonelinessLevel: 0
   property bool sleeping: false
 
-  readonly property var knownForms: ["egg", "baby", "child", "teen_neat",
-    "teen_scruffy", "adult_ace", "adult_ok", "adult_gremlin"]
+  readonly property var knownForms: ["pickle", "incubator", "egg", "baby", "child",
+    "teen_neat", "teen_scruffy", "adult_ace", "adult_ok", "adult_gremlin"]
 
   property string omarchyPath: Quickshell.env("OMARCHY_PATH") || ""
   readonly property string notificationExecutable: omarchyPath !== ""
@@ -102,9 +101,9 @@ Item {
   readonly property real happiness: Math.round(100 - worstNeed)
 
   readonly property real careAverage: careCount > 0 ? careSum / careCount : 100
-  readonly property bool canRoam: stage !== "egg" && stage !== "baby"
+  readonly property bool canRoam: stage !== "egg" && stage !== "incubator" && stage !== "baby"
   readonly property string stageLabel: ({
-    egg: "Egg", baby: "Baby", child: "Child", teen: "Teen", adult: "Adult"
+    incubator: "Clone Vat", pickle: "Pickle Rick", egg: "Egg", baby: "Baby", child: "Child", teen: "Teen", adult: "Adult"
   })[stage] || stage
 
   // Where the pet left its panel, in screen coordinates (center x, feet y),
@@ -171,7 +170,7 @@ Item {
   // needs complain at once the bubble cycles through them every few seconds.
   // Views hide the bubble when the file doesn't exist yet.
   readonly property var activeEmotes: {
-    if (!initialized || sleeping || stage === "egg") return []
+    if (!initialized || sleeping || stage === "egg" || stage === "incubator") return []
     var list = []
     if (hunger >= 60) list.push("emote_hungry")
     if (dirtiness >= 60) list.push("emote_dirty")
@@ -194,7 +193,7 @@ Item {
   // The idle-state animation views should show (falls back to plain idle in
   // PetSprite when the dedicated sprite doesn't exist yet).
   readonly property string stateAnim: {
-    if (!initialized || stage === "egg") return "idle"
+    if (!initialized || stage === "egg" || stage === "incubator") return "idle"
     if (sleeping) return "sleep"
     switch (mood) {
     case "hungry": return "hungry"
@@ -209,7 +208,7 @@ Item {
   // Priority order: sleep is a state, then the loudest complaint wins.
   readonly property string mood: {
     if (!initialized) return "sleeping"
-    if (stage === "egg") return "egg"
+    if (stage === "egg" || stage === "incubator") return "incubator"
     if (sleeping) return "sleeping"
     if (hunger >= 60) return "hungry"
     if (dirtiness >= 60) return "dirty"
@@ -222,20 +221,21 @@ Item {
 
   readonly property string moodLabel: {
     switch (mood) {
-    case "egg": return "An egg. Something wiggles inside…"
-    case "sleeping": return "Zzz…"
+    case "incubator": return "Cloning vat bubbling... Dimension C-137 organism incubating."
+    case "egg": return "Cloning vat bubbling... Dimension C-137 organism incubating."
+    case "sleeping": return "Zzz... Dreaming of destroying the Galactic Federation."
     case "hungry": return pendingUpdates > 0
-      ? "Hungry — and those " + pendingUpdates + " pending updates smell delicious"
-      : "Hungry — feed me!"
+      ? "Hungry! " + pendingUpdates + " pending updates detected in dimension C-137."
+      : "Needs serum! Feed me battery juice or Szechuan sauce!"
     case "dirty": return orphanCount > 0
-      ? "Feeling gross — the " + orphanCount + " orphaned packages don't help"
-      : "Feeling gross — bath time?"
-    case "sleepy": return "Sleepy — about to doze off…"
-    case "bored": return "Bored — let me out to play!"
-    case "lonely": return "Lonely — pet me!"
-    case "meh": return "Doing okay"
-    case "happy": return "Happy!"
-    default: return "Omagotchi"
+      ? "Toxic! " + orphanCount + " orphaned packages need decontamination."
+      : "Covered in sewer grime — scrub me down!"
+    case "sleepy": return "Energy low... about to pass out on the lab floor."
+    case "bored": return "Bored! Open a portal and let me out to conquer your windows!"
+    case "lonely": return "I'M PICKLE RICK! High five or burp at me!"
+    case "meh": return "Tinkering in the garage lab..."
+    case "happy": return "Wubba Lubba Dub Dub! Lab operating at peak efficiency."
+    default: return "OmaPets (Pickle Rick)"
     }
   }
 
@@ -253,10 +253,10 @@ Item {
   // Per-active-minute rates. System state flavors the pace: pending updates
   // and orphans speed up hunger/dirt, roaming is fun but tiring.
   function applyMinute() {
-    if (stage === "egg") return // an egg has no needs yet
+    if (stage === "egg" || stage === "incubator") return // incubator has no needs yet
     var rates = stageRates[stage] || stageRates.adult
 
-    // Out and about, it hums to itself once or twice an hour.
+    // Out and about, it hums or burps to itself once or twice an hour.
     if (roaming && !sleeping && Math.random() < 1.5 / 60) playSound("hum")
 
     hungerLevel = Math.min(100,
@@ -287,8 +287,10 @@ Item {
   // --- growth ----------------------------------------------------------------
 
   function maybeEvolve() {
-    if (stage === "egg" && ageMinutes >= 5)
-      return evolve("baby", "baby", "The egg hatched!")
+    if (stage === "incubator" && ageMinutes >= 2)
+      return evolve("pickle", "pickle", "INCUBATION COMPLETE! Pickle Rick has breached the vat!")
+    if (stage === "egg" && ageMinutes >= 2)
+      return evolve("pickle", "pickle", "Pickle Rick emerged from Dimension C-137!")
     if (stage === "baby" && ageMinutes >= 70)
       return evolve("child", "child", "Your baby grew into a child!")
     if (stage === "child" && ageMinutes >= 550)
@@ -309,29 +311,28 @@ Item {
     careSum = 0
     careCount = 0
     flushPet()
-    playSound(nextStage === "baby" ? "hatch" : "evolve")
-    notify("Omagotchi", message)
+    playSound(nextStage === "pickle" ? "hatch" : "evolve")
+    notify("OmaPets: Dimension C-137", message)
   }
 
   // --- sounds ----------------------------------------------------------------
 
-  // One short clip per event, named after the event so better sounds can be
-  // dropped in without touching code. The current set is placeholders reused
-  // from the tomato-timer plugin's library — see CREDITS.md.
-  // One file per event, or a list to pick from at random (see CREDITS.md).
+  // Sci-fi audio effects for Rick & Morty interactions
   readonly property var eventSounds: ({
-    hatch: "hatch.wav",
-    evolve: "evolve.wav",
+    hatch: ["portal_swirl.wav", "hatch.wav"],
+    evolve: ["portal_swirl.wav", "evolve.wav"],
     eat: "eat.wav",
     wash: "wash.wav",
-    pet: ["pet.wav", "pet2.wav"],
-    hum: "humming.wav",
+    pet: ["rick_burp.wav", "pet.wav", "pet2.wav"],
+    hum: ["rick_burp.wav", "humming.wav"],
     sleep: "sleep.mp3",
     stun: "stun.mp3",
     land: "fall.wav",
     beamCharge: "subbass.wav",
-    beam: "tractorbeam.wav",
-    ball: "balloon.wav",
+    beam: ["portal_swirl.wav", "tractorbeam.wav"],
+    jump: "laser_jump.wav",
+    ball: "laser_jump.wav",
+    farewell_pickle: ["portal_swirl.wav", "rick_burp.wav"],
     farewell_ace: "farewell_ace.wav",
     farewell_ok: "farewell_ok.mp3",
     farewell_gremlin: "farewell_gremlin.mp3"
@@ -356,7 +357,7 @@ Item {
   function notify(title, body) {
     Quickshell.execDetached([
       notificationExecutable,
-      "--app-name", "omagotchi",
+      "--app-name", "omapets",
       "-u", "normal",
       title,
       body
@@ -404,29 +405,26 @@ Item {
     if (dirtLevel === 0) flushPet()
   }
 
-  // The Tamagotchi farewell: the adult sets off into the world, a new egg appears, and
-  // the generation counter carries the legacy.
-  // Letting go is a little ceremony: the adult leaves its room (if home),
-  // walks to the nearest screen corner, says goodbye in its own voice and
-  // walks off the screen. Only then does the new egg appear.
+  // Dimension Hop / Farewell: The pet jumps through a green portal into another dimension.
   property bool farewellPending: false
 
   function beginFarewell() {
-    if (stage !== "adult" || farewellPending) return
+    if ((stage !== "adult" && stage !== "pickle") || farewellPending) return
     wakeUp()
     farewellPending = true
   }
 
   function farewellSoundEvent() {
+    if (form === "pickle") return "farewell_pickle"
     return "farewell_" + form.replace("adult_", "")
   }
 
   function sendOff() {
-    if (stage !== "adult") return
+    if (stage !== "adult" && stage !== "pickle") return
     farewellPending = false
     generation += 1
-    stage = "egg"
-    form = "egg"
+    stage = "incubator"
+    form = "incubator"
     ageMinutes = 0
     careSum = 0
     careCount = 0
@@ -438,12 +436,9 @@ Item {
     sleeping = false
     hatchedAtMs = Date.now()
     lastPetMs = hatchedAtMs
-    // The adult may leave from outdoors; the egg must not inherit a stale
-    // "out playing" state (disabled Come home button, surprise exit at
-    // the child stage).
     updateSettings({ roamEnabled: false })
     flushPet()
-    notify("Omagotchi", "Your companion said goodbye and walked off into the world… a new egg appeared! (Gen " + generation + ")")
+    notify("OmaPets: Dimension C-137", "Pickle Rick jumped through a green portal! A new clone vat is incubating. (Gen " + generation + ")")
   }
 
   // A deliberate wake-up — petting, grabbing, or sending it out — unlike
@@ -581,10 +576,10 @@ Item {
     // A corrupt or hand-edited form or stage falls back to a fresh egg
     // rather than a broken sprite path or NaN-poisoned need rates.
     if (knownForms.indexOf(form) < 0
-        || ["egg", "baby", "child", "teen", "adult"].indexOf(stage) < 0) {
+        || ["incubator", "pickle", "egg", "baby", "child", "teen", "adult"].indexOf(stage) < 0) {
       if (saveProblem === "") saveProblem = "unknown stage/form " + stage + "/" + form
-      stage = "egg"
-      form = "egg"
+      stage = "pickle"
+      form = "pickle"
       ageMinutes = 0
       careSum = 0
       careCount = 0
@@ -597,9 +592,9 @@ Item {
 
     initialized = true
     if (saveProblem !== "") {
-      console.warn("omagotchi: save file " + petPath + " " + saveProblem + " — starting over")
-      notify("Omagotchi couldn't read its save file",
-             "It was corrupt or oversized, so a fresh egg takes over.")
+      console.warn("omapets: save file " + petPath + " " + saveProblem + " — starting over")
+      notify("OmaPets couldn't read its save file",
+             "It was corrupt or oversized, so Pickle Rick takes over.")
     }
     if (hatch) flushPet()
 

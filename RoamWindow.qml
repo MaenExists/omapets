@@ -40,7 +40,7 @@ PanelWindow {
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.layer: WlrLayer.Top
-  WlrLayershell.namespace: "omagotchi"
+  WlrLayershell.namespace: "omapets"
   mask: Region { item: sprite }
 
   readonly property int petScale: {
@@ -516,6 +516,7 @@ PanelWindow {
     height: root.spriteSize
     x: root.petX
     y: root.petY - height
+    colorize: false
     // Dedicated climb frames are drawn upright (back to us, arms reaching);
     // only the walk-frame fallback needs the old -90° tilt.
     rotation: root.action === "climb" && sprite.resolvedAnim !== "climb" ? -90
@@ -527,8 +528,8 @@ PanelWindow {
     anim: {
       if (asleep) return "sleep"
       switch (root.action) {
-      case "walk":
-      case "fall":
+      case "walk": return "walk"
+      case "fall": return "fall"
       case "held": return "walk" // held: legs kicking in protest
       case "climb": return "climb"
       case "stunned": return "stunned"
@@ -537,8 +538,8 @@ PanelWindow {
         : root.petService.stateAnim
       }
     }
-    // A climb without its dedicated sprite reuses the walk frames (rotated).
-    fallbackAnim: root.action === "climb" ? "walk" : "idle"
+    // A climb or fall without dedicated sprites reuses walk/idle
+    fallbackAnim: root.action === "climb" ? "walk" : (root.action === "fall" ? "walk" : "idle")
     frameMs: asleep ? 1200 : (root.action === "idle" ? 500 : 220)
     tint: Color.foreground
     mirrored: root.facingLeft
