@@ -49,18 +49,22 @@ PanelWindow {
     return value >= 2 && value <= 6 ? Math.round(value) : 3
   }
   readonly property int spriteSize: 16 * petScale
-  // Headroom above a platform so the pet never pokes off-screen.
-  readonly property int headroom: spriteSize + 12
-
   readonly property var hyprMonitor: Hyprland.monitorFor(root.screen)
 
-  // The bar's reserved strip, so the floor sits above a bottom bar.
+  // Top and bottom reserved strips from compositor
+  readonly property real reservedTop: {
+    var ipc = hyprMonitor ? hyprMonitor.lastIpcObject : null
+    return ipc && ipc.reserved && ipc.reserved.length > 1 ? Number(ipc.reserved[1]) : 0
+  }
   readonly property real floorY: {
     var ipc = hyprMonitor ? hyprMonitor.lastIpcObject : null
     var reservedBottom = ipc && ipc.reserved && ipc.reserved.length > 3
       ? Number(ipc.reserved[3]) : 0
     return height - reservedBottom
   }
+
+  // Minimum platform Y: allow standing on any window below the top bar
+  readonly property int minPlatformY: Math.max(root.reservedTop + 2, 20)
 
   // --- world model -----------------------------------------------------------
 
@@ -79,18 +83,17 @@ PanelWindow {
       var toplevel = toplevels[i]
       var ipc = toplevel.lastIpcObject
       if (!ipc || !ipc.at || !ipc.size) continue
-      if (!toplevel.workspace || toplevel.workspace.id !== ws) continue
+      if (!toplevel.workspace || String(toplevel.workspace.id) !== String(ws)) continue
       if (ipc.hidden === true || ipc.mapped === false) continue
       if (ipc.fullscreen) continue
       var y = ipc.at[1] - hyprMonitor.y
       var x1 = ipc.at[0] - hyprMonitor.x
       var x2 = x1 + ipc.size[0]
-      // Keep only tops the pet can stand on without leaving the screen, and
-      // that are actually above the floor.
-      if (y < root.headroom || y > root.floorY - 10) continue
+      // Keep tops that sit below the top bar and above the bottom floor
+      if (y < root.minPlatformY || y > root.floorY - 10) continue
       x1 = Math.max(0, x1)
       x2 = Math.min(root.width, x2)
-      if (x2 - x1 < root.spriteSize * 2) continue
+      if (x2 - x1 < root.spriteSize * 1.5) continue
       list.push({ x1: x1, x2: x2, y: y, address: toplevel.address })
     }
     platforms = list
@@ -126,9 +129,9 @@ PanelWindow {
   property var pendingClimb: null  // {wallX, platform} after the walk phase
   property bool facingLeft: false
 
-  readonly property real walkSpeed: petScale * 22   // px/s
-  readonly property real climbSpeed: petScale * 16
-  readonly property real fallSpeed: petScale * 110
+  readonly property real walkSpeed: petScale * 30   // px/s
+  readonly property real climbSpeed: petScale * 22
+  readonly property real fallSpeed: petScale * 120
 
   function currentSurfaceBounds() {
     return support
@@ -164,7 +167,10 @@ PanelWindow {
 
   function startFall() {
     pendingClimb = null
-    if (action !== "fall") fallStartY = petY
+    if (action !== "fall") {
+      fallStartY = petY
+      if (petService && !gentleFall) petService.playSound("fall")
+    }
     action = "fall"
   }
 
@@ -260,6 +266,7 @@ PanelWindow {
           if (root.pendingClimb) {
             root.targetY = root.pendingClimb.platform.y
             root.action = "climb"
+            if (root.petService) root.petService.playSound("jump")
           } else {
             root.action = "idle"
           }
@@ -371,13 +378,13 @@ PanelWindow {
       var roll = Math.random()
       var climbs = root.climbCandidates()
 
-      if (roll < 0.25 && climbs.length > 0) {
+      if (climbs.length > 0 && roll < 0.60) {
         var pick = climbs[Math.floor(Math.random() * climbs.length)]
         root.startWalkTo(pick.wallX, pick)
-      } else if (roll < 0.40 && root.support) {
+      } else if (roll < 0.35 && root.support) {
         // Hop off the current window.
         root.startFall()
-      } else if (roll < 0.85) {
+      } else if (roll < 0.90) {
         var bounds = root.currentSurfaceBounds()
         var span = Math.max(0, bounds.x2 - bounds.x1 - root.spriteSize)
         root.startWalkTo(bounds.x1 + Math.random() * span, null)
@@ -716,13 +723,12 @@ PanelWindow {
     }
   }
 
-  // A small thank-you heart when petted. The overlay is full-screen now, so
-  // it has all the headroom it wants.
+  // A lightning energy burst when clicked / interacted with.
   Text {
     id: heart
-    text: "♥"
-    color: Color.accent
-    font.pixelSize: Math.max(12, root.spriteSize / 3)
+    text: "⚡"
+    color: "#39ff14"
+    font.pixelSize: Math.max(16, root.spriteSize / 2)
     x: root.petX + root.spriteSize / 2 - width / 2
     opacity: 0
 

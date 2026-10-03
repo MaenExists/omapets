@@ -573,9 +573,9 @@ Panel {
 
           Text {
             id: panelHeart
-            text: "♥"
-            color: Color.accent
-            font.pixelSize: Style.space(20)
+            text: "⚡"
+            color: "#39ff14"
+            font.pixelSize: Style.space(24)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             opacity: 0

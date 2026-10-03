@@ -319,20 +319,21 @@ Item {
 
   // Sci-fi audio effects for Rick & Morty interactions
   readonly property var eventSounds: ({
-    hatch: ["portal_swirl.wav", "hatch.wav"],
-    evolve: ["portal_swirl.wav", "evolve.wav"],
-    eat: "eat.wav",
+    hatch: ["portal_swirl.wav", "pickle_rick.mp3"],
+    evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
+    eat: ["rick_chug.mp3", "rick_drink.mp3"],
     wash: "wash.wav",
-    pet: ["rick_burp.wav", "pet.wav", "pet2.wav"],
-    hum: ["rick_burp.wav", "humming.wav"],
+    pet: ["pickle_rick.mp3", "rick_burp1.mp3", "rick_burp2.mp3", "wubba_lubba.mp3"],
+    hum: ["rick_burp1.mp3", "rick_burp2.mp3"],
     sleep: "sleep.mp3",
     stun: "stun.mp3",
+    fall: "rick_fall.mp3",
     land: "fall.wav",
     beamCharge: "subbass.wav",
     beam: ["portal_swirl.wav", "tractorbeam.wav"],
     jump: "laser_jump.wav",
     ball: "laser_jump.wav",
-    farewell_pickle: ["portal_swirl.wav", "rick_burp.wav"],
+    farewell_pickle: ["wubba_lubba.mp3", "pickle_rick.mp3"],
     farewell_ace: "farewell_ace.wav",
     farewell_ok: "farewell_ok.mp3",
     farewell_gremlin: "farewell_gremlin.mp3"
