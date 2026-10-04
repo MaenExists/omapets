@@ -105,8 +105,10 @@ Panel {
   function playEntrance() {
     if (!opened || !ready) return
     entering = true
-    exitPet.x = (petRoom.width - exitPet.width) / 2
-    exitPet.y = petRoom.height
+    exitPet.scale = 0.0
+    exitPet.rotation = -360
+    petService.playSound("beam")
+    panelPortal.openPortal()
     enterAnim.restart()
   }
 
@@ -114,12 +116,10 @@ Panel {
     if (exiting || !ready) return
     petService.wakeUp()
     exiting = true
-    petService.playBeamSound()
-    var start = petRoom.mapToItem(exitOverlay,
-      (petRoom.width - exitPet.width) / 2, (petRoom.height - exitPet.height) / 2)
-    exitPet.x = start.x
-    exitPet.y = start.y
-    exitPet.slideToY = petRoom.mapToItem(exitOverlay, 0, petRoom.height).y
+    petService.playSound("beam")
+    exitPet.scale = 1.0
+    exitPet.rotation = 0
+    panelPortal.openPortal()
     exitAnim.restart()
   }
 
@@ -127,10 +127,6 @@ Panel {
     if (!exiting) return
     exiting = false
     if (!ready) return
-    // The panel surface is a full-screen layer shell, so scene coordinates
-    // are screen coordinates. The sprite disappeared behind the card at the
-    // room's edge, so the fall resumes under the card's bottom, not where
-    // the sprite actually stopped.
     var feetX = exitPet.mapToItem(null, exitPet.width / 2, 0).x
     var cardBottom = keyCatcher.mapToItem(null, 0, keyCatcher.height).y
     petService.handoffX = feetX
@@ -377,8 +373,8 @@ Panel {
             id: bigPet
             anchors.centerIn: parent
             visible: !root.petIsOut && !root.exiting && !root.entering
-            width: Style.space(80)
-            height: Style.space(80)
+            width: Style.space(55)
+            height: Style.space(95)
             colorize: false
             form: root.ready ? root.petService.form : "pickle"
             anim: {
@@ -795,52 +791,73 @@ Panel {
         height: petRoom.height
         clip: true
         z: 5
-        visible: exitAnim.running || enterAnim.running
+        visible: exitAnim.running || enterAnim.running || panelPortal.active
+
+        PortalEffect {
+          id: panelPortal
+          anchors.centerIn: parent
+          z: 1
+        }
 
         PetSprite {
           id: exitPet
-          width: Style.space(80)
-          height: Style.space(80)
+          width: Style.space(55)
+          height: Style.space(95)
+          anchors.centerIn: parent
+          z: 2
           colorize: false
           form: root.ready ? root.petService.form : "pickle"
-          // Legs pumping on the way out; serenely carried on the way in.
-          anim: root.entering ? "idle" : "walk"
+          anim: "jump"
           fallbackAnim: "idle"
           frameMs: 220
           tint: Color.accent
-
-          property real slideToY: 0
         }
 
         SequentialAnimation {
           id: exitAnim
-          // A careful slide over the edge of the room…
-          NumberAnimation {
-            target: exitPet; property: "y"
-            to: exitPet.slideToY
-            duration: 650
-            easing.type: Easing.InOutQuad
+          PauseAnimation { duration: 250 }
+          ParallelAnimation {
+            NumberAnimation {
+              target: exitPet
+              property: "scale"
+              to: 0.0
+              duration: 380
+              easing.type: Easing.InBack
+            }
+            NumberAnimation {
+              target: exitPet
+              property: "rotation"
+              to: 360
+              duration: 380
+            }
           }
-          // …then straight down, fully past the room's clipped edge.
-          NumberAnimation {
-            target: exitPet; property: "y"
-            to: exitOverlay.height + exitPet.height
-            duration: 200
-            easing.type: Easing.InQuad
-          }
+          ScriptAction { script: panelPortal.closePortal() }
+          PauseAnimation { duration: 260 }
           ScriptAction { script: root.finishExit() }
         }
 
-        // The homecoming: beamed up through the card, the pet rises from the
-        // room's bottom edge back to its spot.
         SequentialAnimation {
           id: enterAnim
-          NumberAnimation {
-            target: exitPet; property: "y"
-            to: (petRoom.height - exitPet.height) / 2
-            duration: 600
-            easing.type: Easing.OutQuad
+          PauseAnimation { duration: 250 }
+          ParallelAnimation {
+            NumberAnimation {
+              target: exitPet
+              property: "scale"
+              from: 0.0
+              to: 1.0
+              duration: 420
+              easing.type: Easing.OutBack
+            }
+            NumberAnimation {
+              target: exitPet
+              property: "rotation"
+              from: -360
+              to: 0
+              duration: 420
+            }
           }
+          ScriptAction { script: panelPortal.closePortal() }
+          PauseAnimation { duration: 260 }
           ScriptAction { script: root.entering = false }
         }
       }

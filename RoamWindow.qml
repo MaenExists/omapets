@@ -48,7 +48,9 @@ PanelWindow {
       ? Number(petService.settings.roamScale) : 3
     return value >= 2 && value <= 6 ? Math.round(value) : 3
   }
-  readonly property int spriteSize: 16 * petScale
+  readonly property int spriteHeight: 28 * petScale
+  readonly property int spriteWidth: Math.round(spriteHeight * (54.0 / 80.0))
+  readonly property int spriteSize: spriteHeight
   readonly property var hyprMonitor: Hyprland.monitorFor(root.screen)
 
   // Top and bottom reserved strips from compositor
@@ -65,6 +67,20 @@ PanelWindow {
 
   // Minimum platform Y: allow standing on any window below the top bar
   readonly property int minPlatformY: Math.max(root.reservedTop + 2, 20)
+  readonly property real headroom: Math.max(root.reservedTop + root.spriteHeight, root.spriteHeight + 10)
+
+  // Throw velocity physics
+  property real throwVx: 0
+  property real throwVy: 0
+
+  function launchThrow(vx, vy) {
+    throwVx = Math.max(-1400, Math.min(1400, vx))
+    throwVy = Math.max(-1000, Math.min(1200, vy))
+    startFall()
+    if (Math.abs(throwVx) > 300 || throwVy > 300) {
+      if (petService) petService.playSound("fall")
+    }
+  }
 
   // --- world model -----------------------------------------------------------
 
@@ -180,22 +196,25 @@ PanelWindow {
   function startReturn() {
     var svc = petService
     if (!svc) return
-    if (!(svc.handoffX >= 0) || !screen || svc.handoffScreen !== screen.name) {
-      finishReturn()
-      return
-    }
     pendingClimb = null
     support = null
     gentleFall = false
-    beamX = Math.max(spriteSize / 2,
-      Math.min(width - spriteSize / 2, svc.handoffX))
-    beamTopY = svc.handoffY
-    // The pet pops onto the beam's axis at floor level and rides straight
-    // up — the beam stays perfectly vertical.
-    petX = beamX - spriteSize / 2
-    petY = Math.max(beamTopY + 1, floorY)
-    beamActive = true
-    action = "beamup"
+    roamPortal.x = petX + spriteWidth / 2 - roamPortal.width / 2
+    roamPortal.y = petY - spriteHeight / 2 - roamPortal.height / 2
+    roamPortal.openPortal()
+    action = "jump"
+    svc.playSound("beam")
+    portalReturnTimer.restart()
+  }
+
+  Timer {
+    id: portalReturnTimer
+    interval: 650
+    repeat: false
+    onTriggered: {
+      action = "portal_exit"
+      roamPortal.closePortal()
+    }
   }
 
   function finishReturn() {
@@ -283,18 +302,36 @@ PanelWindow {
         } else {
           root.petY -= rise
         }
-      } else if (root.action === "beamup") {
-        var pull = root.fallSpeed * dt
-        if (root.petY - root.beamTopY <= pull) root.finishReturn()
-        else root.petY -= pull
+      } else if (root.action === "beamup" || root.action === "portal_exit") {
+        // Portal exit transition handled by roamPortal and portalReturnTimer
       } else if (root.action === "fall") {
+        // Apply horizontal throw velocity if active
+        if (Math.abs(root.throwVx) > 10) {
+          root.petX += root.throwVx * dt
+          root.throwVx *= Math.max(0, 1.0 - 1.8 * dt) // Air drag
+          if (root.petX < 0) {
+            root.petX = 0
+            root.throwVx = -root.throwVx * 0.5
+            root.facingLeft = false
+          } else if (root.petX > root.width - root.spriteWidth) {
+            root.petX = root.width - root.spriteWidth
+            root.throwVx = -root.throwVx * 0.5
+            root.facingLeft = true
+          }
+        }
+
+        var vy = root.fallSpeed + Math.max(0, root.throwVy)
+        root.throwVy = Math.max(0, root.throwVy - 500 * dt)
+        var drop = vy * dt
         var landing = root.landingBelow(root.petX, root.petY)
-        var drop = root.fallSpeed * dt
         if (landing.y - root.petY <= drop) {
           root.petY = landing.y
           root.support = landing.platform
-          if (!root.gentleFall
-              && root.petY - root.fallStartY > root.height * root.stunFallFraction) {
+          var totalDropDist = root.petY - root.fallStartY
+          var hadHighVelocity = Math.abs(root.throwVx) > 400 || vy > 700
+          root.throwVx = 0
+          root.throwVy = 0
+          if (!root.gentleFall && (totalDropDist > root.height * root.stunFallFraction || hadHighVelocity)) {
             root.action = "stunned"
             stunTimer.restart()
             if (root.petService) root.petService.stunShock()
@@ -442,20 +479,21 @@ PanelWindow {
     var svc = petService
     var w = width > 0 ? width : (screen ? screen.width : 0)
     if (svc && svc.handoffX >= 0 && screen && svc.handoffScreen === screen.name) {
-      // The pet just dropped out of its panel: continue that fall from right
-      // under the card instead of teleporting to the floor.
-      petX = Math.max(0, Math.min(w - spriteSize, svc.handoffX - spriteSize / 2))
+      // The pet just exited through a portal: spawn from a green swirling portal
+      petX = Math.max(0, Math.min(w - spriteWidth, svc.handoffX - spriteWidth / 2))
       petY = Math.max(headroom, Math.min(floorY > 0 ? floorY : svc.handoffY, svc.handoffY))
-      beamX = petX + spriteSize / 2
-      beamTopY = svc.handoffY
-      beamActive = true
+      roamPortal.x = petX + spriteWidth / 2 - roamPortal.width / 2
+      roamPortal.y = petY - spriteHeight / 2 - roamPortal.height / 2
+      roamPortal.burst(1100)
       gentleFall = true
       startFall()
     } else {
-      beamActive = false
-      petX = Math.max(0, w / 2 - spriteSize / 2)
+      petX = Math.max(0, w / 2 - spriteWidth / 2)
       petY = floorY
       action = "idle"
+      roamPortal.x = petX + spriteWidth / 2 - roamPortal.width / 2
+      roamPortal.y = petY - spriteHeight / 2 - roamPortal.height / 2
+      roamPortal.burst(1100)
     }
     if (svc) {
       svc.handoffX = -1
@@ -477,52 +515,24 @@ PanelWindow {
 
   // --- the pet ---------------------------------------------------------------
 
-  // The tractor beam: a soft cone widening from the card's bottom edge down
-  // to the pet's feet, spaceship style. Purely visual — the click mask only
-  // covers the sprite, so the beam stays click-through.
-  Shape {
-    id: beam
-    anchors.fill: parent
-    visible: opacity > 0.01
-    // The fade target must stay constant while active: feeding an animated
-    // value through the Behavior restarts it every frame and the fade
-    // livelocks at 0. The shimmer lives in the gradient alpha instead.
-    opacity: root.beamActive ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 300 } }
-    preferredRendererType: Shape.CurveRenderer
-
-    // A slow breathing shimmer while the beam is on.
-    property real beamPulse: 1
-    SequentialAnimation {
-      running: root.beamActive
-      loops: Animation.Infinite
-      NumberAnimation { target: beam; property: "beamPulse"; to: 0.7; duration: 500 }
-      NumberAnimation { target: beam; property: "beamPulse"; to: 1.0; duration: 500 }
-      onStopped: beam.beamPulse = 1
-    }
-
-    ShapePath {
-      strokeWidth: -1
-      fillGradient: LinearGradient {
-        x1: root.beamX; y1: root.beamTopY
-        x2: root.beamX; y2: root.petY
-        GradientStop { position: 0; color: Qt.alpha(Color.accent, 0.5 * beam.beamPulse) }
-        GradientStop { position: 1; color: Qt.alpha(Color.accent, 0.08 * beam.beamPulse) }
+  // Rick & Morty green swirling portal: opens on spawn and return trips.
+  PortalEffect {
+    id: roamPortal
+    z: 4
+    onClosed: {
+      if (root.action === "portal_exit") {
+        root.finishReturn()
       }
-      startX: root.beamX - root.spriteSize * 0.3
-      startY: root.beamTopY
-      PathLine { x: root.beamX + root.spriteSize * 0.3; y: root.beamTopY }
-      PathLine { x: root.beamX + root.spriteSize * 0.9; y: root.petY }
-      PathLine { x: root.beamX - root.spriteSize * 0.9; y: root.petY }
     }
   }
 
   PetSprite {
     id: sprite
-    width: root.spriteSize
-    height: root.spriteSize
+    width: root.spriteWidth
+    height: root.spriteHeight
     x: root.petX
     y: root.petY - height
+    visible: root.action !== "portal_exit"
     colorize: false
     // Dedicated climb frames are drawn upright (back to us, arms reaching);
     // only the walk-frame fallback needs the old -90° tilt.
@@ -540,6 +550,7 @@ PanelWindow {
       case "held": return "walk" // held: legs kicking in protest
       case "climb": return "climb"
       case "stunned": return "stunned"
+      case "jump": return "jump"
       default: return root.petService.transientAnim !== ""
         ? root.petService.transientAnim
         : root.petService.stateAnim
@@ -552,15 +563,11 @@ PanelWindow {
     mirrored: root.facingLeft
 
     // Click = pet; press-and-move = pick it up by the scruff and carry it.
-    // Once pressed, the Wayland implicit grab keeps pointer events coming to
-    // this surface even when the cursor leaves the click mask, so the drag
-    // survives crossing other windows.
+    // Release with velocity = throw Pickle Rick across the screen!
     MouseArea {
       id: grabArea
       anchors.fill: parent
-      // A stunned pet is too dizzy to be petted or picked up, and the
-      // tractor beam's pull is irresistible.
-      enabled: root.action !== "stunned" && root.action !== "beamup"
+      enabled: root.action !== "stunned" && root.action !== "portal_exit"
         && !(root.petService && root.petService.farewellPending)
       cursorShape: root.action === "held" ? Qt.ClosedHandCursor : Qt.PointingHandCursor
 
@@ -568,19 +575,40 @@ PanelWindow {
       property real grabDy: 0
       property real pressGlobalX: 0
       property real pressGlobalY: 0
+      property real lastMouseX: 0
+      property real lastMouseY: 0
+      property double lastMoveTime: 0
+      property real dragVx: 0
+      property real dragVy: 0
       property bool dragging: false
 
       onPressed: function(mouse) {
         var p = mapToItem(root.contentItem, mouse.x, mouse.y)
         pressGlobalX = p.x
         pressGlobalY = p.y
+        lastMouseX = p.x
+        lastMouseY = p.y
+        lastMoveTime = Date.now()
+        dragVx = 0
+        dragVy = 0
         grabDx = p.x - root.petX
-        grabDy = p.y - (root.petY - root.spriteSize)
+        grabDy = p.y - (root.petY - root.spriteHeight)
         dragging = false
       }
       onPositionChanged: function(mouse) {
         if (!pressed) return
         var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+        var now = Date.now()
+        var dt = (now - lastMoveTime) / 1000.0
+        if (dt > 0.005) {
+          var instVx = (p.x - lastMouseX) / dt
+          var instVy = (p.y - lastMouseY) / dt
+          dragVx = dragVx * 0.3 + instVx * 0.7
+          dragVy = dragVy * 0.3 + instVy * 0.7
+          lastMouseX = p.x
+          lastMouseY = p.y
+          lastMoveTime = now
+        }
         if (!dragging) {
           if (Math.abs(p.x - pressGlobalX) < 8 && Math.abs(p.y - pressGlobalY) < 8) return
           dragging = true
@@ -591,17 +619,15 @@ PanelWindow {
           root.beamActive = false
           if (root.petService) root.petService.wakeUp()
         }
-        root.petX = Math.max(0, Math.min(root.width - root.spriteSize, p.x - grabDx))
+        root.petX = Math.max(0, Math.min(root.width - root.spriteWidth, p.x - grabDx))
         root.petY = Math.max(root.headroom,
-          Math.min(root.floorY, p.y - grabDy + root.spriteSize))
+          Math.min(root.floorY, p.y - grabDy + root.spriteHeight))
       }
       onReleased: {
         if (dragging) {
           dragging = false
-          // A small lift so a drop aimed at a window border lands on it
-          // instead of slipping just past its top edge.
           root.petY = Math.max(root.headroom, root.petY - 6)
-          root.startFall()
+          root.launchThrow(dragVx, dragVy)
         } else {
           if (root.petService) root.petService.petThePet()
           heart.pop()
