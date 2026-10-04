@@ -323,7 +323,7 @@ Item {
     evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
     eat: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav"],
     wash: "wash.wav",
-    pet: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav", "pickle_rick.mp3", "wubba_lubba.mp3"],
+    pet: ["pickle_rick.mp3", "wubba_lubba.mp3"],
     hum: ["rick_burp2.wav", "rick_burp3.wav", "rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     fart: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     sleep: "sleep.mp3",
