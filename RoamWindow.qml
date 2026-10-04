@@ -340,7 +340,6 @@ PanelWindow {
             if (root.petService) root.petService.stunShock()
           } else {
             root.action = "idle"
-            if (!root.gentleFall && root.petService) root.petService.playSound("land")
           }
           root.gentleFall = false
           root.beamActive = false
