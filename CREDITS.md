@@ -26,6 +26,15 @@ so a sound can be swapped without touching code.
 | `farewell_gremlin.mp3` | the gremlin says goodbye | "UFO Voice Goodbye.mp3" by richmstudios — https://freesound.org/s/317015/ — CC BY-NC 3.0 |
 | `subbass.wav` | tractor beam powering up | "sub bass 1 seconddddd.wav" by uzerx — https://freesound.org/s/59537/ — CC0 |
 
+| `rick_slam.wav` | heavy impact crash when falling or thrown | Mixed cartoon body slam and shockwave thud |
+| `rick_burp1.wav` .. `3` | authentic Rick vocal belches (eating / petting) | Rick Sanchez voice clips from Rick & Morty |
+| `rick_fart1.wav` .. `3` | random short comedic farts while roaming | Cartoon comedy sound effects |
+| `rick_fall.mp3` | screaming in terror while thrown | Rick Sanchez vocal scream |
+| `pickle_rick.mp3` | "I'm Pickle Rick!" voice line | Rick Sanchez voice clip |
+| `wubba_lubba.mp3` | "Wubba Lubba Dub Dub!" voice line | Rick Sanchez voice clip |
+
 ## Sprites
 
-All sprites are original one-bit drawings made for this plugin.
+- **Pickle Rick:** High-fidelity rat-suit Pickle Rick multi-frame animation suite (idle, run, climb, jump, fall, stunned, eat, wash, sleep) adapted from RYDE-PLAY's Codex Pet open asset (`pickle-rick--ryde-play` in `awesome-codex-pet`), tailored for Omarchy desktop.
+- **Original Retro Sprites:** Original pixel-art sprites for classic stages and incubator vat.
+

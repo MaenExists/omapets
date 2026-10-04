@@ -48,9 +48,11 @@ PanelWindow {
       ? Number(petService.settings.roamScale) : 3
     return value >= 2 && value <= 6 ? Math.round(value) : 3
   }
-  readonly property int spriteHeight: 28 * petScale
-  readonly property int spriteWidth: Math.round(spriteHeight * (54.0 / 80.0))
-  readonly property int spriteSize: spriteHeight
+  readonly property int spriteHeight: (petService && petService.form === "pickle" ? 34 : 28) * petScale
+  readonly property int spriteWidth: (petService && petService.form === "pickle")
+    ? Math.round(spriteHeight * (192.0 / 208.0))
+    : Math.round(spriteHeight * (54.0 / 80.0))
+  readonly property int spriteSize: spriteWidth
   readonly property var hyprMonitor: Hyprland.monitorFor(root.screen)
 
   // Top and bottom reserved strips from compositor
@@ -331,12 +333,14 @@ PanelWindow {
           var hadHighVelocity = Math.abs(root.throwVx) > 400 || vy > 700
           root.throwVx = 0
           root.throwVy = 0
+          if (root.petService) root.petService.stopSound("fall")
           if (!root.gentleFall && (totalDropDist > root.height * root.stunFallFraction || hadHighVelocity)) {
             root.action = "stunned"
             stunTimer.restart()
             if (root.petService) root.petService.stunShock()
           } else {
             root.action = "idle"
+            if (!root.gentleFall && root.petService) root.petService.playSound("land")
           }
           root.gentleFall = false
           root.beamActive = false
@@ -473,6 +477,24 @@ PanelWindow {
     onTriggered: refreshDebounce.restart()
   }
 
+  // Spontaneous comedic farts and burps while roaming the desktop
+  Timer {
+    id: ambientFartTimer
+    interval: 18000
+    running: root.visible && root.action !== "portal_exit" && !(root.petService && root.petService.sleeping)
+    repeat: true
+    onTriggered: {
+      interval = Math.round(16000 + Math.random() * 28000)
+      if (root.action === "idle" || root.action === "walk") {
+        if (Math.random() < 0.45 && root.petService) {
+          root.petService.playSound("fart")
+        } else if (Math.random() < 0.35 && root.petService) {
+          root.petService.playSound("hum")
+        }
+      }
+    }
+  }
+
   function resetPosition() {
     support = null
     pendingClimb = null
@@ -558,7 +580,7 @@ PanelWindow {
     }
     // A climb or fall without dedicated sprites reuses walk/idle
     fallbackAnim: root.action === "climb" ? "walk" : (root.action === "fall" ? "walk" : "idle")
-    frameMs: asleep ? 1200 : (root.action === "idle" ? 500 : 220)
+    frameMs: root.petService && root.petService.form === "pickle" ? 0 : (asleep ? 1200 : (root.action === "idle" ? 500 : 220))
     tint: Color.foreground
     mirrored: root.facingLeft
 

@@ -373,8 +373,8 @@ Panel {
             id: bigPet
             anchors.centerIn: parent
             visible: !root.petIsOut && !root.exiting && !root.entering
-            width: Style.space(55)
-            height: Style.space(95)
+            width: Style.space(90)
+            height: Style.space(105)
             colorize: false
             form: root.ready ? root.petService.form : "pickle"
             anim: {

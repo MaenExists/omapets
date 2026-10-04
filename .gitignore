@@ -7,3 +7,4 @@
 # Cache
 __pycache__/
 .cache/
+tools/cache/

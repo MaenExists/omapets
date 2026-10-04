@@ -321,14 +321,15 @@ Item {
   readonly property var eventSounds: ({
     hatch: ["portal_swirl.wav", "pickle_rick.mp3"],
     evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
-    eat: ["rick_chug.mp3", "rick_drink.mp3"],
+    eat: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav"],
     wash: "wash.wav",
-    pet: ["rick_miniburp1.wav", "rick_miniburp2.wav", "pickle_rick.mp3", "wubba_lubba.mp3"],
-    hum: ["rick_miniburp1.wav", "rick_miniburp2.wav"],
+    pet: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav", "pickle_rick.mp3", "wubba_lubba.mp3"],
+    hum: ["rick_burp2.wav", "rick_burp3.wav", "rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
+    fart: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     sleep: "sleep.mp3",
     stun: "stun.mp3",
     fall: "rick_fall.mp3",
-    land: "fall.wav",
+    land: "rick_slam.wav",
     beamCharge: "subbass.wav",
     beam: ["portal_swirl.wav", "tractorbeam.wav"],
     jump: "laser_jump.wav",
@@ -353,6 +354,12 @@ Item {
     if (!file) return
     Quickshell.execDetached(["pw-play", "--volume", soundVolume.toFixed(2),
       soundPath("sounds/" + file)])
+  }
+
+  function stopSound(event) {
+    if (event === "fall") {
+      Quickshell.execDetached(["pkill", "-f", "pw-play.*rick_fall"])
+    }
   }
 
   function notify(title, body) {
