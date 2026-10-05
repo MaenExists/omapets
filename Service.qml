@@ -323,8 +323,18 @@ Item {
     evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
     eat: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav"],
     wash: "wash.wav",
-    pet: ["pickle_rick.mp3", "wubba_lubba.mp3"],
-    hum: ["rick_burp2.wav", "rick_burp3.wav", "rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
+    pet: [
+      "pickle_rick.mp3",
+      "wubba_lubba.mp3",
+      "rick_turned_pickle.wav",
+      "rick_big_reveal.wav",
+      "rick_flip_pickle.wav",
+      "rick_news_goes.wav",
+      "rick_rikki_tikki.wav",
+      "rick_grass_tastes_bad.wav",
+      "rick_lick_balls.wav"
+    ],
+    hum: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     fart: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     sleep: "sleep.mp3",
     stun: "stun.mp3",
@@ -347,10 +357,20 @@ Item {
     return decodeURIComponent(url)
   }
 
+  property string lastPetSound: ""
+
   function playSound(event) {
     if (soundVolume <= 0) return
     var file = eventSounds[event]
-    if (Array.isArray(file)) file = file[Math.floor(Math.random() * file.length)]
+    if (Array.isArray(file)) {
+      if (file.length > 1 && event === "pet") {
+        var pool = file.filter(function(s) { return s !== lastPetSound })
+        file = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : file[0]
+        lastPetSound = file
+      } else {
+        file = file[Math.floor(Math.random() * file.length)]
+      }
+    }
     if (!file) return
     Quickshell.execDetached(["pw-play", "--volume", soundVolume.toFixed(2),
       soundPath("sounds/" + file)])
