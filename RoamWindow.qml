@@ -254,22 +254,78 @@ PanelWindow {
     action = "walk"
   }
 
-  // Climbable walls from here: edges of platforms strictly above whose base
-  // is reachable by walking on the current surface.
+  // Platforms strictly above whose top edge is reachable by a big leap
   function climbCandidates() {
     if (root.petService && root.petService.injured) return []
-    var bounds = currentSurfaceBounds()
     var found = []
     for (var i = 0; i < platforms.length; i++) {
       var p = platforms[i]
       if (support && p.address === support.address) continue
-      if (p.y >= petY - spriteSize) continue
-      if (p.x1 >= bounds.x1 && p.x1 <= bounds.x2 - spriteSize)
-        found.push({ wallX: p.x1, platform: p })
-      else if (p.x2 - spriteSize >= bounds.x1 && p.x2 <= bounds.x2)
-        found.push({ wallX: p.x2 - spriteSize, platform: p })
+      if (p.y >= petY - 25) continue
+      if (petY - p.y > 850) continue
+      found.push(p)
     }
     return found
+  }
+
+  // --- Big Jump onto top of window panes -------------------------------------
+
+  ParallelAnimation {
+    id: paneJumpAnim
+    property var targetPlatform: null
+    property real destX: 0
+    property real destY: 0
+
+    NumberAnimation {
+      id: paneJumpX
+      target: root
+      property: "petX"
+      duration: 500
+      easing.type: Easing.OutQuad
+    }
+    SequentialAnimation {
+      NumberAnimation {
+        id: paneJumpY1
+        target: root
+        property: "petY"
+        duration: 320
+        easing.type: Easing.OutQuad
+      }
+      NumberAnimation {
+        id: paneJumpY2
+        target: root
+        property: "petY"
+        duration: 180
+        easing.type: Easing.InQuad
+      }
+    }
+    onFinished: {
+      root.support = paneJumpAnim.targetPlatform
+      root.petY = paneJumpAnim.destY
+      root.petX = paneJumpAnim.destX
+      root.action = "idle"
+      if (root.petService) root.petService.playSound("pet")
+    }
+  }
+
+  function leapToPane(p) {
+    if (!p) return
+    var landX = Math.max(p.x1 + 15, Math.min(p.x2 - spriteWidth - 15, petX))
+    var peakY = Math.min(p.y - 40, petY - 70)
+    facingLeft = landX < petX
+    action = "jump"
+    if (petService) petService.playSound("jump")
+
+    paneJumpAnim.targetPlatform = p
+    paneJumpAnim.destX = landX
+    paneJumpAnim.destY = p.y
+    paneJumpX.from = petX
+    paneJumpX.to = landX
+    paneJumpY1.from = petY
+    paneJumpY1.to = peakY
+    paneJumpY2.from = peakY
+    paneJumpY2.to = p.y
+    paneJumpAnim.restart()
   }
 
   // --- physics ---------------------------------------------------------------
@@ -285,27 +341,18 @@ PanelWindow {
         var step = root.walkSpeed * dt
         if (Math.abs(root.targetX - root.petX) <= step) {
           root.petX = root.targetX
-          if (root.pendingClimb) {
-            root.targetY = root.pendingClimb.platform.y
-            root.facingLeft = (root.pendingClimb.wallX > root.pendingClimb.platform.x1 + 10)
-            root.action = "climb"
-            if (root.petService) root.petService.playSound("jump")
+          if (root.pendingClimb && root.pendingClimb.jumpPlatform) {
+            var plat = root.pendingClimb.jumpPlatform
+            root.pendingClimb = null
+            root.leapToPane(plat)
           } else {
             root.action = "idle"
           }
         } else {
           root.petX += root.petX < root.targetX ? step : -step
         }
-      } else if (root.action === "climb") {
-        var rise = root.climbSpeed * dt
-        if (root.petY - root.targetY <= rise) {
-          root.petY = root.targetY
-          root.support = root.pendingClimb ? root.pendingClimb.platform : root.support
-          root.pendingClimb = null
-          root.action = "idle"
-        } else {
-          root.petY -= rise
-        }
+      } else if (root.action === "jump" || root.action === "climb") {
+        // Handled by paneJumpAnim
       } else if (root.action === "beamup" || root.action === "portal_exit") {
         // Portal exit transition handled by roamPortal and portalReturnTimer
       } else if (root.action === "fall") {
@@ -418,11 +465,16 @@ PanelWindow {
     onTriggered: {
       interval = 2500 + Math.floor(Math.random() * 5000)
       var roll = Math.random()
-      var climbs = root.climbCandidates()
+      var jumps = root.climbCandidates()
 
-      if (climbs.length > 0 && roll < 0.60) {
-        var pick = climbs[Math.floor(Math.random() * climbs.length)]
-        root.startWalkTo(pick.wallX, pick)
+      if (jumps.length > 0 && roll < 0.65) {
+        var pick = jumps[Math.floor(Math.random() * jumps.length)]
+        var landX = Math.max(pick.x1 + 15, Math.min(pick.x2 - root.spriteWidth - 15, root.petX))
+        if (root.petX >= pick.x1 - 40 && root.petX <= pick.x2 - root.spriteWidth + 40) {
+          root.leapToPane(pick)
+        } else {
+          root.startWalkTo(landX, { jumpPlatform: pick })
+        }
       } else if (roll < 0.35 && root.support) {
         // Hop off the current window.
         root.startFall()
@@ -476,33 +528,6 @@ PanelWindow {
     running: root.visible
     repeat: true
     onTriggered: refreshDebounce.restart()
-  }
-
-  property bool fartSquish: false
-  Timer {
-    id: fartHopTimer
-    interval: 180
-    onTriggered: root.fartSquish = false
-    onRunningChanged: {
-      if (running) root.fartSquish = true
-    }
-  }
-
-  // Spontaneous comedic farts while roaming the desktop
-  Timer {
-    id: ambientFartTimer
-    interval: 14000
-    running: root.visible && root.action !== "portal_exit" && !(root.petService && root.petService.sleeping)
-    repeat: true
-    onTriggered: {
-      interval = Math.round(12000 + Math.random() * 18000)
-      if (root.action === "idle" || root.action === "walk") {
-        if (root.petService && Math.random() < 0.75) {
-          root.petService.playSound("fart")
-          fartHopTimer.restart()
-        }
-      }
-    }
   }
 
   // Periodic groaning in pain while injured
@@ -576,14 +601,11 @@ PanelWindow {
     width: root.spriteWidth
     height: root.spriteHeight
     x: root.petX
-    y: root.petY - height + (root.fartSquish ? 6 : 0)
+    y: root.petY - height
     visible: root.action !== "portal_exit"
     colorize: false
-    // Dynamic climbing angle: vertical climb with subtle authentic lean into the wall
     rotation: {
-      if (root.action === "climb") {
-        return root.facingLeft ? -3 : 3
-      }
+      if (root.action === "jump") return root.facingLeft ? -10 : 10
       if (root.action === "held") return 12
       if (root.petService && root.petService.injured) return -7
       return 0
@@ -598,7 +620,7 @@ PanelWindow {
       case "walk": return "walk"
       case "fall": return "fall"
       case "held": return "walk" // held: legs kicking in protest
-      case "climb": return "climb" // Hand-over-hand rat claw climbing animation
+      case "climb": return "jump"
       case "stunned": return "stunned"
       case "jump": return "jump"
       default: return root.petService.transientAnim !== ""
@@ -609,7 +631,7 @@ PanelWindow {
     // A climb or fall without dedicated sprites reuses walk/idle
     fallbackAnim: root.action === "fall" ? "walk" : "idle"
     frameMs: root.petService && root.petService.form === "pickle"
-      ? (root.action === "climb" ? 120 : (root.petService.injured ? 160 : 0))
+      ? (root.petService.injured ? 160 : 0)
       : (asleep ? 1200 : (root.action === "idle" ? 500 : 220))
     tint: root.petService && root.petService.injured ? "#ffb0b0" : Color.foreground
     mirrored: root.facingLeft

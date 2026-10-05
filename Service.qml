@@ -121,6 +121,50 @@ Item {
   property bool returnRequested: false
   signal arrivedHome()
 
+  // --- Solenya Protocol (The Rat Hunter & Process Assassin) ------------------
+  property var solenyaPrey: []
+  property int ratsExterminated: 0
+  property string sewerTrashSize: "0 KB"
+  property string solenyaNotice: ""
+  property bool solenyaScanning: false
+
+  function refreshSolenya() {
+    solenyaScanning = true
+    solenyaScanProc.running = true
+    solenyaTrashProc.running = true
+  }
+
+  function assassinateProcess(pid, name) {
+    if (!pid) return
+    solenyaKillProc.command = ["kill", "-9", String(pid)]
+    solenyaKillProc.running = true
+    ratsExterminated += 1
+    solenyaNotice = "⚡ Solenya assassinated " + name + " (PID " + pid + ")!"
+    playSound("jump")
+    flushPet()
+    solenyaClearNoticeTimer.restart()
+  }
+
+  function sweepSewerTrash() {
+    solenyaSweepProc.command = ["sh", "-c", "rm -rf ~/.cache/thumbnails/*; du -sh ~/.cache/thumbnails 2>/dev/null | awk '{print $1}' || echo '0K'"]
+    solenyaSweepProc.running = true
+    ratsExterminated += 1
+    solenyaNotice = "🧹 Sewer swept! Cleared bloated thumbnail cache."
+    playSound("jump")
+    flushPet()
+    solenyaClearNoticeTimer.restart()
+  }
+
+  function assassinateActiveWindow() {
+    solenyaHyprKillProc.command = ["hyprctl", "dispatch", "killactive"]
+    solenyaHyprKillProc.running = true
+    ratsExterminated += 1
+    solenyaNotice = "💀 Solenya executed active window!"
+    playSound("jump")
+    flushPet()
+    solenyaClearNoticeTimer.restart()
+  }
+
   // Short-lived animation for a care action ("eat", "wash"), shown by the
   // panel and the roaming pet, then cleared.
   property string transientAnim: ""
@@ -336,8 +380,7 @@ Item {
       "rick_news_goes.wav",
       "rick_grass_tastes_bad.wav"
     ],
-    hum: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
-    fart: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
+    hum: "humming.wav",
     sleep: "sleep.mp3",
     stun: "stun.mp3",
     pain: ["rick_pain1.wav", "rick_pain2.wav", "rick_pain3.wav"],
@@ -587,7 +630,8 @@ Item {
       lonelinessLevel: lonelinessLevel,
       sleeping: sleeping,
       hardFallCount: hardFallCount,
-      injured: injured
+      injured: injured,
+      ratsExterminated: ratsExterminated
     }, null, 2) + "\n")
   }
 
@@ -625,6 +669,7 @@ Item {
       boredomLevel = num(pet.boredomLevel)
       hardFallCount = Math.max(0, Math.round(num(pet.hardFallCount)))
       injured = pet.injured === true
+      ratsExterminated = Math.max(0, Math.round(num(pet.ratsExterminated)))
       if (pet.lonelinessLevel !== undefined) {
         lonelinessLevel = num(pet.lonelinessLevel)
       } else {
@@ -666,6 +711,7 @@ Item {
 
     updatesProc.running = true
     orphansProc.running = true
+    refreshSolenya()
   }
 
   function updateSettingsInMemory(parsed) {
@@ -704,6 +750,85 @@ Item {
         root.orphanCount = 0
       }
     }
+  }
+
+  Process {
+    id: solenyaScanProc
+    command: ["sh", "-c", "ps -eo pid,pcpu,pmem,comm --sort=-pcpu | awk 'NR>1 && $4!=\"ps\" && $4!=\"quickshell\" && $4!=\"head\" && $4!=\"awk\" && $4!=\"omarchy-shell\" {print $1\":\"$2\":\"$3\":\"$4}' | head -n 4"]
+    stdout: StdioCollector { id: solenyaScanOut }
+    onExited: function(exitCode) {
+      root.solenyaScanning = false
+      if (exitCode === 0) {
+        var lines = solenyaScanOut.text.trim().split("\n")
+        var list = []
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim()
+          if (!line) continue
+          var parts = line.split(":")
+          if (parts.length >= 4) {
+            list.push({
+              pid: parts[0],
+              cpu: parts[1],
+              mem: parts[2],
+              name: parts[3]
+            })
+          }
+        }
+        root.solenyaPrey = list
+      }
+    }
+  }
+
+  Process {
+    id: solenyaTrashProc
+    command: ["sh", "-c", "du -sh ~/.cache/thumbnails 2>/dev/null | awk '{print $1}' || echo '0K'"]
+    stdout: StdioCollector { id: solenyaTrashOut }
+    onExited: function(exitCode) {
+      if (exitCode === 0) {
+        var s = solenyaTrashOut.text.trim()
+        root.sewerTrashSize = s === "" ? "0 KB" : s
+      }
+    }
+  }
+
+  Process {
+    id: solenyaKillProc
+    onExited: function(exitCode) {
+      root.refreshSolenya()
+    }
+  }
+
+  Process {
+    id: solenyaSweepProc
+    stdout: StdioCollector { id: solenyaSweepOut }
+    onExited: function(exitCode) {
+      if (exitCode === 0) {
+        var s = solenyaSweepOut.text.trim()
+        root.sewerTrashSize = s === "" ? "0 KB" : s
+      }
+      root.refreshSolenya()
+    }
+  }
+
+  Process {
+    id: solenyaHyprKillProc
+    onExited: function(exitCode) {
+      root.refreshSolenya()
+    }
+  }
+
+  Timer {
+    id: solenyaClearNoticeTimer
+    interval: 4000
+    onTriggered: root.solenyaNotice = ""
+  }
+
+  Timer {
+    id: solenyaHeartbeatTimer
+    interval: 20 * 1000
+    running: root.initialized
+    repeat: true
+    onTriggered: root.refreshSolenya()
   }
 
   // The heartbeat: needs, age, care sampling and evolution, every minute.
