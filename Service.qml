@@ -352,16 +352,14 @@ Item {
 
   // Sci-fi audio effects for Rick & Morty interactions
   readonly property var eventSounds: ({
-    hatch: ["portal_swirl.wav", "pickle_rick.mp3"],
-    evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
-    eat: ["rick_burp2.wav", "rick_burp3.wav", "rick_miniburp1.wav", "rick_miniburp2.wav"],
+    hatch: ["portal.wav", "pickle_rick.mp3"],
+    evolve: ["portal.wav", "pickle_rick.mp3"],
+    eat: ["rick_burp2.wav", "rick_burp3.wav"],
     wash: "wash.wav",
     pet: [
       "pickle_rick.mp3",
       "wubba_lubba.mp3",
-      "rick_turned_pickle.wav",
       "rick_big_reveal.wav",
-      "rick_flip_pickle.wav",
       "rick_news_goes.wav",
       "rick_grass_tastes_bad.wav"
     ],
@@ -371,8 +369,7 @@ Item {
     pain: ["rick_pain1.wav", "rick_pain2.wav", "rick_pain3.wav"],
     fall: "rick_fall.mp3",
     land: "rick_slam.wav",
-    beamCharge: "subbass.wav",
-    beam: ["portal_swirl.wav", "tractorbeam.wav"],
+    beam: "portal.wav",
     jump: "laser_jump.wav",
     ball: "laser_jump.wav",
     farewell_pickle: ["wubba_lubba.mp3", "pickle_rick.mp3"],
@@ -573,18 +570,9 @@ Item {
     flushPet()
   }
 
-  // The tractor beam: a low thrum powering up, then the beam itself. On the
-  // way home it is mirrored: the beam plays out (~2.7 s), then the thrum.
+  // Single iconic Rick & Morty green portal sound
   function playBeamSound(homeward) {
-    beamSoundTimer.second = homeward ? "beamCharge" : "beam"
-    beamSoundTimer.interval = homeward ? 2700 : 650
-    playSound(homeward ? "beam" : "beamCharge")
-    beamSoundTimer.restart()
-  }
-  Timer {
-    id: beamSoundTimer
-    property string second: "beam"
-    onTriggered: root.playSound(second)
+    playSound("beam")
   }
 
   function updateSettings(patch) {
