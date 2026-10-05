@@ -268,37 +268,56 @@ PanelWindow {
     return found
   }
 
-  // --- Big Jump onto top of window panes -------------------------------------
+  // --- Slow Steady Jump onto top of window panes -----------------------------
 
-  ParallelAnimation {
+  SequentialAnimation {
     id: paneJumpAnim
     property var targetPlatform: null
     property real destX: 0
     property real destY: 0
 
-    NumberAnimation {
-      id: paneJumpX
-      target: root
-      property: "petX"
-      duration: 500
-      easing.type: Easing.OutQuad
-    }
-    SequentialAnimation {
-      NumberAnimation {
-        id: paneJumpY1
-        target: root
-        property: "petY"
-        duration: 320
-        easing.type: Easing.OutQuad
-      }
-      NumberAnimation {
-        id: paneJumpY2
-        target: root
-        property: "petY"
-        duration: 180
-        easing.type: Easing.InQuad
+    // Brief steady wind-up / crouch before leaping
+    ScriptAction {
+      script: {
+        root.action = "idle"
       }
     }
+    PauseAnimation { duration: 250 }
+
+    // Smooth, steady leap in an arc
+    ScriptAction {
+      script: {
+        root.action = "jump"
+        if (root.petService) root.petService.playSound("jump")
+      }
+    }
+
+    ParallelAnimation {
+      NumberAnimation {
+        id: paneJumpX
+        target: root
+        property: "petX"
+        duration: 1400
+        easing.type: Easing.InOutSine
+      }
+      SequentialAnimation {
+        NumberAnimation {
+          id: paneJumpY1
+          target: root
+          property: "petY"
+          duration: 900
+          easing.type: Easing.OutSine
+        }
+        NumberAnimation {
+          id: paneJumpY2
+          target: root
+          property: "petY"
+          duration: 500
+          easing.type: Easing.InSine
+        }
+      }
+    }
+
     onFinished: {
       root.support = paneJumpAnim.targetPlatform
       root.petY = paneJumpAnim.destY
@@ -311,20 +330,33 @@ PanelWindow {
   function leapToPane(p) {
     if (!p) return
     var landX = Math.max(p.x1 + 15, Math.min(p.x2 - spriteWidth - 15, petX))
-    var peakY = Math.min(p.y - 40, petY - 70)
+    var peakY = Math.min(p.y - 20, petY - 50)
     facingLeft = landX < petX
-    action = "jump"
-    if (petService) petService.playSound("jump")
+
+    var distY = Math.abs(petY - p.y)
+    var distX = Math.abs(petX - landX)
+    var dist = Math.sqrt(distY * distY + distX * distX)
+    // Steady, gentle pace: ~1200ms to 1800ms depending on travel distance
+    var totalDuration = Math.max(1200, Math.min(1800, Math.round(dist * 2.2)))
+    var upDuration = Math.round(totalDuration * 0.64)
+    var downDuration = totalDuration - upDuration
 
     paneJumpAnim.targetPlatform = p
     paneJumpAnim.destX = landX
     paneJumpAnim.destY = p.y
+
+    paneJumpX.duration = totalDuration
     paneJumpX.from = petX
     paneJumpX.to = landX
+
+    paneJumpY1.duration = upDuration
     paneJumpY1.from = petY
     paneJumpY1.to = peakY
+
+    paneJumpY2.duration = downDuration
     paneJumpY2.from = peakY
     paneJumpY2.to = p.y
+
     paneJumpAnim.restart()
   }
 
