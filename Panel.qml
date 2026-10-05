@@ -728,15 +728,17 @@ Panel {
         Rectangle {
           id: janitorCard
           width: parent.width
+          implicitHeight: janitorCol.implicitHeight
+          height: implicitHeight
           radius: Style.cornerRadius > 0 ? Style.space(8) : 0
           color: Qt.alpha(Color.accent, 0.08)
           border.width: 1
           border.color: Qt.alpha(Color.accent, 0.22)
-          clip: true
 
           property bool expanded: false
 
           Column {
+            id: janitorCol
             width: parent.width
             padding: Style.space(8)
             spacing: Style.space(6)
@@ -744,7 +746,8 @@ Panel {
             // Header bar: Left title & badge, Right action buttons
             Item {
               width: parent.width - Style.space(16)
-              height: Math.max(janitorTitleRow.height, janitorBtnRow.height)
+              implicitHeight: Math.max(cleanBtn.implicitHeight, Style.space(28))
+              height: implicitHeight
 
               Row {
                 id: janitorTitleRow
