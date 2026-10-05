@@ -287,6 +287,7 @@ PanelWindow {
           root.petX = root.targetX
           if (root.pendingClimb) {
             root.targetY = root.pendingClimb.platform.y
+            root.facingLeft = (root.pendingClimb.wallX > root.pendingClimb.platform.x1 + 10)
             root.action = "climb"
             if (root.petService) root.petService.playSound("jump")
           } else {
@@ -578,10 +579,10 @@ PanelWindow {
     y: root.petY - height + (root.fartSquish ? 6 : 0)
     visible: root.action !== "portal_exit"
     colorize: false
-    // Dynamic climbing angle: tilt towards the wall surface so limbs claw into the wall
+    // Dynamic climbing angle: vertical climb with subtle authentic lean into the wall
     rotation: {
       if (root.action === "climb") {
-        return root.facingLeft ? -76 : 76
+        return root.facingLeft ? -3 : 3
       }
       if (root.action === "held") return 12
       if (root.petService && root.petService.injured) return -7
@@ -597,7 +598,7 @@ PanelWindow {
       case "walk": return "walk"
       case "fall": return "fall"
       case "held": return "walk" // held: legs kicking in protest
-      case "climb": return "walk" // Rapidly scramble claws and legs up the wall!
+      case "climb": return "climb" // Hand-over-hand rat claw climbing animation
       case "stunned": return "stunned"
       case "jump": return "jump"
       default: return root.petService.transientAnim !== ""
@@ -606,9 +607,9 @@ PanelWindow {
       }
     }
     // A climb or fall without dedicated sprites reuses walk/idle
-    fallbackAnim: root.action === "climb" ? "walk" : (root.action === "fall" ? "walk" : "idle")
+    fallbackAnim: root.action === "fall" ? "walk" : "idle"
     frameMs: root.petService && root.petService.form === "pickle"
-      ? (root.action === "climb" ? 85 : (root.petService.injured ? 160 : 0))
+      ? (root.action === "climb" ? 120 : (root.petService.injured ? 160 : 0))
       : (asleep ? 1200 : (root.action === "idle" ? 500 : 220))
     tint: root.petService && root.petService.injured ? "#ffb0b0" : Color.foreground
     mirrored: root.facingLeft

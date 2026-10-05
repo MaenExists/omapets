@@ -34,8 +34,18 @@ Item {
     sleep:     { count: 4, interval: 400 }
   })
 
-  readonly property bool useWalkLeft: root.form === "pickle" && root.resolvedAnim === "walk" && root.mirrored
-  readonly property string actualAnimName: useWalkLeft ? "walk_left" : root.resolvedAnim
+  readonly property var pickleAnimAliases: ({
+    sad: "stunned",
+    lonely: "stunned",
+    bored: "idle",
+    hungry: "idle"
+  })
+
+  readonly property string normalizedAnim: (root.form === "pickle" && pickleAnimAliases[root.resolvedAnim])
+    ? pickleAnimAliases[root.resolvedAnim]
+    : root.resolvedAnim
+  readonly property bool useWalkLeft: root.form === "pickle" && normalizedAnim === "walk" && root.mirrored
+  readonly property string actualAnimName: useWalkLeft ? "walk_left" : normalizedAnim
   readonly property bool actualMirror: useWalkLeft ? false : root.mirrored
 
   readonly property var currentAnimConfig: {
