@@ -115,11 +115,39 @@ Item {
   property real handoffY: -1
   property string handoffScreen: ""
 
-  // Set by the panel to call the pet home through the tractor beam; the roam
-  // window beams it up to the handoff spot, then clears this and fires
-  // arrivedHome so the panel can play the entrance.
   property bool returnRequested: false
   signal arrivedHome()
+
+  // --- Rick's Garage Janitor (Waste Cleaner) ----------------------------------
+  readonly property string janitorScriptPath: Qt.resolvedUrl("janitor.py").toString().replace(/^file:\/\//, "")
+  property string trashSize: "0 B"
+  property string thumbCacheSize: "0 B"
+  property string aurCacheSize: "0 B"
+  property string browserCacheSize: "0 B"
+  property string totalWasteSize: "0 B"
+  property string janitorNotice: ""
+  property bool isCleaning: false
+
+  function refreshWasteStats() {
+    janitorScanProc.running = true
+  }
+
+  function cleanSafeWaste() {
+    if (isCleaning) return
+    isCleaning = true
+    janitorNotice = "Rick is clearing trash & cache..."
+    janitorCleanProc.command = ["python3", root.janitorScriptPath, "clean"]
+    janitorCleanProc.running = true
+  }
+
+  function cleanBrowserCache() {
+    if (isCleaning) return
+    isCleaning = true
+    janitorNotice = "Rick is purging browser cache..."
+    janitorCleanProc.command = ["python3", root.janitorScriptPath, "clean_browser"]
+    janitorCleanProc.running = true
+  }
+
 
 
   // Short-lived animation for a care action ("eat", "wash"), shown by the
@@ -666,6 +694,7 @@ Item {
 
     updatesProc.running = true
     orphansProc.running = true
+    root.refreshWasteStats()
   }
 
   function updateSettingsInMemory(parsed) {
@@ -704,6 +733,61 @@ Item {
         root.orphanCount = 0
       }
     }
+  }
+
+  Process {
+    id: janitorScanProc
+    command: ["python3", root.janitorScriptPath, "scan"]
+    stdout: StdioCollector { id: janitorScanOut }
+    onExited: function(exitCode) {
+      if (exitCode === 0) {
+        try {
+          var data = JSON.parse(janitorScanOut.text.trim())
+          root.trashSize = data.trash || "0 B"
+          root.thumbCacheSize = data.thumb || "0 B"
+          root.aurCacheSize = data.yay || "0 B"
+          root.browserCacheSize = data.brave || "0 B"
+          root.totalWasteSize = data.total || "0 B"
+        } catch (e) {
+          console.warn("omapets: janitor scan parse error: " + e)
+        }
+      }
+    }
+  }
+
+  Process {
+    id: janitorCleanProc
+    stdout: StdioCollector { id: janitorCleanOut }
+    onExited: function(exitCode) {
+      root.isCleaning = false
+      if (exitCode === 0) {
+        try {
+          var data = JSON.parse(janitorCleanOut.text.trim())
+          root.janitorNotice = "✨ Reclaimed " + (data.freed || "disk space") + "! Junk vaporized."
+        } catch (e) {
+          root.janitorNotice = "✨ System waste cleaned!"
+        }
+        root.playSound("jump")
+        root.refreshWasteStats()
+        janitorNoticeTimer.restart()
+      } else {
+        root.janitorNotice = "Cleaning completed with warnings."
+        janitorNoticeTimer.restart()
+      }
+    }
+  }
+
+  Timer {
+    id: janitorNoticeTimer
+    interval: 5000
+    onTriggered: root.janitorNotice = ""
+  }
+
+  Timer {
+    interval: 5 * 60 * 1000
+    running: root.initialized
+    repeat: true
+    onTriggered: root.refreshWasteStats()
   }
 
 

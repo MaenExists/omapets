@@ -142,13 +142,13 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    padding: Style.space(14)
-    contentWidth: panel.fittedContentWidth(Style.space(410))
+    padding: Style.space(12)
+    contentWidth: panel.fittedContentWidth(Style.space(380))
     // The card sizes itself from the actual content, plus breathing room at
     // the bottom. fittedContentHeight adds the card's own padding and border
     // inset — contentHeight includes them, so feeding it a raw content height
     // silently shaves that inset off the content area instead.
-    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight + Style.space(16))
+    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight + Style.space(12))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -161,14 +161,14 @@ Panel {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: Style.space(12)
+        spacing: Style.space(8)
 
         // --- the pet -------------------------------------------------------
 
         Rectangle {
           id: petRoom
           width: parent.width
-          height: Style.space(150)
+          height: Style.space(120)
           radius: Style.cornerRadius > 0 ? Style.space(10) : 0
           color: Qt.alpha(Color.accent, 0.08)
           border.width: 1
@@ -724,6 +724,227 @@ Panel {
           }
         }
 
+        // --- Rick's Garage Janitor: System Waste Cleaner -------------------
+        Rectangle {
+          id: janitorCard
+          width: parent.width
+          radius: Style.cornerRadius > 0 ? Style.space(8) : 0
+          color: Qt.alpha(Color.accent, 0.08)
+          border.width: 1
+          border.color: Qt.alpha(Color.accent, 0.22)
+          clip: true
+
+          property bool expanded: false
+
+          Column {
+            width: parent.width
+            padding: Style.space(8)
+            spacing: Style.space(6)
+
+            // Header bar: Left title & badge, Right action buttons
+            Item {
+              width: parent.width - Style.space(16)
+              height: Math.max(janitorTitleRow.height, janitorBtnRow.height)
+
+              Row {
+                id: janitorTitleRow
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(6)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "🧹 System Janitor"
+                  color: "#39ff14"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.weight: Font.Bold
+                  renderType: Text.NativeRendering
+                }
+
+                Rectangle {
+                  anchors.verticalCenter: parent.verticalCenter
+                  height: Style.space(18)
+                  width: wasteBadgeText.width + Style.space(10)
+                  radius: Style.space(9)
+                  color: Qt.alpha(Color.accent, 0.22)
+
+                  Text {
+                    id: wasteBadgeText
+                    anchors.centerIn: parent
+                    text: root.petService ? root.petService.totalWasteSize : "0 B"
+                    color: Color.accent
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                    font.weight: Font.Bold
+                    renderType: Text.NativeRendering
+                  }
+                }
+              }
+
+              Row {
+                id: janitorBtnRow
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(4)
+
+                Button {
+                  id: cleanBtn
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.petService && root.petService.isCleaning ? "Cleaning..." : "✨ Clean"
+                  tooltipText: "Safely empty Trash, purge thumbnail cache, and remove AUR build waste"
+                  fontFamily: root.fontFamily
+                  enabled: root.ready && (!root.petService || !root.petService.isCleaning)
+                  onClicked: if (root.petService) root.petService.cleanSafeWaste()
+                }
+
+                Button {
+                  id: expandBtn
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: janitorCard.expanded ? "▲" : "▼"
+                  tooltipText: janitorCard.expanded ? "Hide breakdown" : "Show waste breakdown"
+                  fontFamily: root.fontFamily
+                  onClicked: janitorCard.expanded = !janitorCard.expanded
+                }
+              }
+            }
+
+            // Notification / Feedback Banner
+            Text {
+              width: parent.width - Style.space(16)
+              visible: root.petService ? root.petService.janitorNotice !== "" : false
+              text: root.petService ? root.petService.janitorNotice : ""
+              color: Color.accent
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+              font.weight: Font.Bold
+              renderType: Text.NativeRendering
+              wrapMode: Text.Wrap
+            }
+
+            // Detailed Waste Breakdown (Collapsible)
+            Column {
+              width: parent.width - Style.space(16)
+              visible: janitorCard.expanded
+              spacing: Style.space(4)
+
+              Item {
+                width: parent.width
+                height: Style.space(16)
+                Text {
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "🗑️ System Trash"
+                  color: Qt.alpha(root.foreground, 0.75)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  renderType: Text.NativeRendering
+                }
+                Text {
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.petService ? root.petService.trashSize : "0 B"
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  font.weight: Font.Bold
+                  renderType: Text.NativeRendering
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(16)
+                Text {
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "🖼️ Thumbnail Cache"
+                  color: Qt.alpha(root.foreground, 0.75)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  renderType: Text.NativeRendering
+                }
+                Text {
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.petService ? root.petService.thumbCacheSize : "0 B"
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  font.weight: Font.Bold
+                  renderType: Text.NativeRendering
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(16)
+                Text {
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "📦 AUR Yay Build Cache"
+                  color: Qt.alpha(root.foreground, 0.75)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  renderType: Text.NativeRendering
+                }
+                Text {
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.petService ? root.petService.aurCacheSize : "0 B"
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  font.weight: Font.Bold
+                  renderType: Text.NativeRendering
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(16)
+                Text {
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "🌐 Browser Cache (Brave)"
+                  color: Qt.alpha(root.foreground, 0.75)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  renderType: Text.NativeRendering
+                }
+                Text {
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.petService ? root.petService.browserCacheSize : "0 B"
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption !== undefined ? Style.font.caption : Style.font.bodySmall
+                  font.weight: Font.Bold
+                  renderType: Text.NativeRendering
+                }
+              }
+
+              Row {
+                spacing: Style.space(6)
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                Button {
+                  text: "🌐 Purge Browser Cache"
+                  tooltipText: "Clear Brave disk cache & code cache"
+                  fontFamily: root.fontFamily
+                  onClicked: if (root.petService) root.petService.cleanBrowserCache()
+                }
+
+                Button {
+                  text: "🔄 Refresh"
+                  tooltipText: "Recalculate waste sizes"
+                  fontFamily: root.fontFamily
+                  onClicked: if (root.petService) root.petService.refreshWasteStats()
+                }
+              }
+            }
+          }
+        }
 
         // --- sound ---------------------------------------------------------
         // A speaker button; click it to unfold the effects volume slider.
