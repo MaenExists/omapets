@@ -603,6 +603,15 @@ Panel {
           renderType: Text.NativeRendering
         }
 
+        Button {
+          anchors.horizontalCenter: parent.horizontalCenter
+          visible: root.ready && root.petService.injured
+          text: "🩹 Repair Rat Exoskeleton (First Aid)"
+          tooltipText: "Mend Rick's cracked cyber-rig and soothe impact trauma"
+          fontFamily: root.fontFamily
+          onClicked: root.petService.healInjuries()
+        }
+
         Text {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter

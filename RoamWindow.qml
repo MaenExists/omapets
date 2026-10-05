@@ -147,8 +147,8 @@ PanelWindow {
   property var pendingClimb: null  // {wallX, platform} after the walk phase
   property bool facingLeft: false
 
-  readonly property real walkSpeed: petScale * 30   // px/s
-  readonly property real climbSpeed: petScale * 22
+  readonly property real walkSpeed: petScale * (root.petService && root.petService.injured ? 14 : 30)   // px/s
+  readonly property real climbSpeed: petScale * 24
   readonly property real fallSpeed: petScale * 120
 
   function currentSurfaceBounds() {
@@ -257,6 +257,7 @@ PanelWindow {
   // Climbable walls from here: edges of platforms strictly above whose base
   // is reachable by walking on the current surface.
   function climbCandidates() {
+    if (root.petService && root.petService.injured) return []
     var bounds = currentSurfaceBounds()
     var found = []
     for (var i = 0; i < platforms.length; i++) {
@@ -476,21 +477,43 @@ PanelWindow {
     onTriggered: refreshDebounce.restart()
   }
 
-  // Spontaneous comedic farts and burps while roaming the desktop
+  property bool fartSquish: false
+  Timer {
+    id: fartHopTimer
+    interval: 180
+    onTriggered: root.fartSquish = false
+    onRunningChanged: {
+      if (running) root.fartSquish = true
+    }
+  }
+
+  // Spontaneous comedic farts while roaming the desktop
   Timer {
     id: ambientFartTimer
-    interval: 18000
+    interval: 14000
     running: root.visible && root.action !== "portal_exit" && !(root.petService && root.petService.sleeping)
     repeat: true
     onTriggered: {
-      interval = Math.round(16000 + Math.random() * 28000)
+      interval = Math.round(12000 + Math.random() * 18000)
       if (root.action === "idle" || root.action === "walk") {
-        if (Math.random() < 0.45 && root.petService) {
+        if (root.petService && Math.random() < 0.75) {
           root.petService.playSound("fart")
-        } else if (Math.random() < 0.35 && root.petService) {
-          root.petService.playSound("hum")
+          fartHopTimer.restart()
         }
       }
+    }
+  }
+
+  // Periodic groaning in pain while injured
+  Timer {
+    id: ambientPainTimer
+    interval: 18000
+    running: root.visible && root.action !== "portal_exit"
+      && (root.petService && root.petService.injured && !root.petService.sleeping)
+    repeat: true
+    onTriggered: {
+      interval = Math.round(16000 + Math.random() * 14000)
+      if (root.petService) root.petService.playSound("pain")
     }
   }
 
@@ -552,14 +575,19 @@ PanelWindow {
     width: root.spriteWidth
     height: root.spriteHeight
     x: root.petX
-    y: root.petY - height
+    y: root.petY - height + (root.fartSquish ? 6 : 0)
     visible: root.action !== "portal_exit"
     colorize: false
-    // Dedicated climb frames are drawn upright (back to us, arms reaching);
-    // only the walk-frame fallback needs the old -90° tilt.
-    rotation: root.action === "climb" && sprite.resolvedAnim !== "climb" ? -90
-      : (root.action === "held" ? 12 : 0)
-    Behavior on rotation { NumberAnimation { duration: 150 } }
+    // Dynamic climbing angle: tilt towards the wall surface so limbs claw into the wall
+    rotation: {
+      if (root.action === "climb") {
+        return root.facingLeft ? -76 : 76
+      }
+      if (root.action === "held") return 12
+      if (root.petService && root.petService.injured) return -7
+      return 0
+    }
+    Behavior on rotation { NumberAnimation { duration: 130 } }
 
     readonly property bool asleep: root.petService && root.petService.sleeping
     form: root.petService.form
@@ -569,7 +597,7 @@ PanelWindow {
       case "walk": return "walk"
       case "fall": return "fall"
       case "held": return "walk" // held: legs kicking in protest
-      case "climb": return "climb"
+      case "climb": return "walk" // Rapidly scramble claws and legs up the wall!
       case "stunned": return "stunned"
       case "jump": return "jump"
       default: return root.petService.transientAnim !== ""
@@ -579,8 +607,10 @@ PanelWindow {
     }
     // A climb or fall without dedicated sprites reuses walk/idle
     fallbackAnim: root.action === "climb" ? "walk" : (root.action === "fall" ? "walk" : "idle")
-    frameMs: root.petService && root.petService.form === "pickle" ? 0 : (asleep ? 1200 : (root.action === "idle" ? 500 : 220))
-    tint: Color.foreground
+    frameMs: root.petService && root.petService.form === "pickle"
+      ? (root.action === "climb" ? 85 : (root.petService.injured ? 160 : 0))
+      : (asleep ? 1200 : (root.action === "idle" ? 500 : 220))
+    tint: root.petService && root.petService.injured ? "#ffb0b0" : Color.foreground
     mirrored: root.facingLeft
 
     // Click = pet; press-and-move = pick it up by the scruff and carry it.

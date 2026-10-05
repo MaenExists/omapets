@@ -57,6 +57,8 @@ Item {
   property real boredomLevel: 0
   property real lonelinessLevel: 0
   property bool sleeping: false
+  property int hardFallCount: 0
+  property bool injured: false
 
   readonly property var knownForms: ["pickle", "incubator", "egg", "baby", "child",
     "teen_neat", "teen_scruffy", "adult_ace", "adult_ok", "adult_gremlin"]
@@ -210,6 +212,7 @@ Item {
     if (!initialized) return "sleeping"
     if (stage === "egg" || stage === "incubator") return "incubator"
     if (sleeping) return "sleeping"
+    if (injured) return "injured"
     if (hunger >= 60) return "hungry"
     if (dirtiness >= 60) return "dirty"
     if (tiredness >= 60) return "sleepy"
@@ -224,6 +227,7 @@ Item {
     case "incubator": return "Cloning vat bubbling... Dimension C-137 organism incubating."
     case "egg": return "Cloning vat bubbling... Dimension C-137 organism incubating."
     case "sleeping": return "Zzz... Dreaming of destroying the Galactic Federation."
+    case "injured": return "CRITICAL TRAUMA: Rat exoskeleton cracked! Feed me serum or apply first aid!"
     case "hungry": return pendingUpdates > 0
       ? "Hungry! " + pendingUpdates + " pending updates detected in dimension C-137."
       : "Needs serum! Feed me battery juice or Szechuan sauce!"
@@ -321,7 +325,7 @@ Item {
   readonly property var eventSounds: ({
     hatch: ["portal_swirl.wav", "pickle_rick.mp3"],
     evolve: ["portal_swirl.wav", "pickle_rick.mp3"],
-    eat: ["rick_burp1.wav", "rick_burp2.wav", "rick_burp3.wav"],
+    eat: ["rick_burp2.wav", "rick_burp3.wav", "rick_miniburp1.wav", "rick_miniburp2.wav"],
     wash: "wash.wav",
     pet: [
       "pickle_rick.mp3",
@@ -330,14 +334,13 @@ Item {
       "rick_big_reveal.wav",
       "rick_flip_pickle.wav",
       "rick_news_goes.wav",
-      "rick_rikki_tikki.wav",
-      "rick_grass_tastes_bad.wav",
-      "rick_lick_balls.wav"
+      "rick_grass_tastes_bad.wav"
     ],
     hum: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     fart: ["rick_fart1.wav", "rick_fart2.wav", "rick_fart3.wav"],
     sleep: "sleep.mp3",
     stun: "stun.mp3",
+    pain: ["rick_pain1.wav", "rick_pain2.wav", "rick_pain3.wav"],
     fall: "rick_fall.mp3",
     land: "rick_slam.wav",
     beamCharge: "subbass.wav",
@@ -345,9 +348,9 @@ Item {
     jump: "laser_jump.wav",
     ball: "laser_jump.wav",
     farewell_pickle: ["wubba_lubba.mp3", "pickle_rick.mp3"],
-    farewell_ace: "farewell_ace.wav",
-    farewell_ok: "farewell_ok.mp3",
-    farewell_gremlin: "farewell_gremlin.mp3"
+    farewell_ace: "pickle_rick.mp3",
+    farewell_ok: "pickle_rick.mp3",
+    farewell_gremlin: "pickle_rick.mp3"
   })
 
   // pw-play wants a filesystem path, not a file:// URL.
@@ -409,6 +412,7 @@ Item {
 
   function feedNow() {
     if (eating) return
+    if (injured) healInjuries()
     wakeForCare()
     transientAnim = "eat"
     transientTimer.stop()
@@ -485,7 +489,16 @@ Item {
     nowMs = lastPetMs
     lonelinessLevel = Math.max(0, lonelinessLevel - 10)
     boredomLevel = Math.max(0, boredomLevel - 10)
-    playSound("pet")
+    if (injured) {
+      hardFallCount = Math.max(0, hardFallCount - 1)
+      if (hardFallCount <= 0) {
+        healInjuries()
+      } else {
+        playSound("pain")
+      }
+    } else {
+      playSound("pet")
+    }
     flushPet()
   }
 
@@ -502,13 +515,34 @@ Item {
   function stunShock() {
     lonelinessLevel = Math.min(100, lonelinessLevel + 10)
     playSound("land")
-    stunSoundTimer.restart()
+    hardFallCount++
+    if (hardFallCount >= 3) {
+      injured = true
+      painSoundTimer.restart()
+      notify("Pickle Rick: INJURED!", "Aaaargh! Multiple impact trauma! My rat suit is cracked, Morty! Heal me!")
+    } else {
+      stunSoundTimer.restart()
+    }
     flushPet()
   }
   Timer {
     id: stunSoundTimer
     interval: 450
     onTriggered: root.playSound("stun")
+  }
+  Timer {
+    id: painSoundTimer
+    interval: 400
+    onTriggered: root.playSound("pain")
+  }
+
+  function healInjuries() {
+    if (!injured && hardFallCount === 0) return
+    injured = false
+    hardFallCount = 0
+    playSound("pet")
+    notify("Pickle Rick: Repaired", "Fine, my rat-rig is patched. Stop dropping me from the stratosphere, genius.")
+    flushPet()
   }
 
   // The tractor beam: a low thrum powering up, then the beam itself. On the
@@ -551,7 +585,9 @@ Item {
       tirednessLevel: tirednessLevel,
       boredomLevel: boredomLevel,
       lonelinessLevel: lonelinessLevel,
-      sleeping: sleeping
+      sleeping: sleeping,
+      hardFallCount: hardFallCount,
+      injured: injured
     }, null, 2) + "\n")
   }
 
@@ -587,6 +623,8 @@ Item {
       dirtLevel = num(pet.dirtLevel)
       tirednessLevel = num(pet.tirednessLevel)
       boredomLevel = num(pet.boredomLevel)
+      hardFallCount = Math.max(0, Math.round(num(pet.hardFallCount)))
+      injured = pet.injured === true
       if (pet.lonelinessLevel !== undefined) {
         lonelinessLevel = num(pet.lonelinessLevel)
       } else {
